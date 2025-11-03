@@ -1,5 +1,10 @@
 # Windsurf Auto-Fixer - One Command Solution
 # Usage: irm https://raw.githubusercontent.com/amrpyt/windsurf-fixes/main/install.ps1 | iex
+# 
+# IMPORTANT: This fix is tested on Windsurf v1.12.21 (October 2025 build)
+# If you're using a newer version and the command fix doesn't work,
+# Windsurf might have already fixed the issue or changed the code structure.
+# Please check: https://github.com/amrpyt/windsurf-fixes/issues
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $ErrorActionPreference = "Stop"
@@ -8,11 +13,15 @@ Clear-Host
 Write-Host ""
 Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host "                  Windsurf Auto-Fixer                      " -ForegroundColor Cyan
+Write-Host "                     v1.12.21                              " -ForegroundColor DarkGray
 Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "This will fix:" -ForegroundColor White
 Write-Host "  [1] Arabic text (RTL support)" -ForegroundColor Yellow
-Write-Host "  [2] PowerShell command execution" -ForegroundColor Yellow
+Write-Host "  [2] PowerShell command execution (v1.12.21)" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "NOTE: Command fix is tested on Windsurf v1.12.21" -ForegroundColor DarkGray
+Write-Host "      Newer versions might already have this fixed." -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "Press ENTER to continue or Ctrl+C to cancel..." -ForegroundColor Gray
 $null = Read-Host
@@ -235,6 +244,13 @@ if (-not (Test-Path $extensionFile)) {
         } else {
             Write-Host "[!] Warning: Could not find exact code pattern" -ForegroundColor Yellow
             Write-Host "    The file structure might have changed" -ForegroundColor Gray
+            Write-Host ""
+            Write-Host "This could mean:" -ForegroundColor White
+            Write-Host "  - Windsurf already fixed this issue" -ForegroundColor Green
+            Write-Host "  - You're using a different version (not v1.12.21)" -ForegroundColor Yellow
+            Write-Host "  - The code structure changed" -ForegroundColor Yellow
+            Write-Host ""
+            Write-Host "Please check: https://github.com/amrpyt/windsurf-fixes/issues" -ForegroundColor Cyan
         }
     }
 }
