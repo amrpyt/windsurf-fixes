@@ -16,14 +16,53 @@ Write-Host "                  Windsurf Auto-Fixer                      " -Foregr
 Write-Host "                     v1.12.21                              " -ForegroundColor DarkGray
 Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "This will fix:" -ForegroundColor White
-Write-Host "  [1] Arabic text (RTL support)" -ForegroundColor Yellow
-Write-Host "  [2] PowerShell command execution (v1.12.21)" -ForegroundColor Yellow
+Write-Host "Available fixes:" -ForegroundColor White
+Write-Host "  [1] Arabic text (RTL support) - All versions" -ForegroundColor Green
+Write-Host "  [2] PowerShell command execution - v1.12.21 only" -ForegroundColor Yellow
 Write-Host ""
-Write-Host "NOTE: Command fix is tested on Windsurf v1.12.21" -ForegroundColor DarkGray
-Write-Host "      Newer versions might already have this fixed." -ForegroundColor DarkGray
+Write-Host "Which fixes would you like to apply?" -ForegroundColor Cyan
+Write-Host "  [1] RTL fix only" -ForegroundColor White
+Write-Host "  [2] Command fix only" -ForegroundColor White
+Write-Host "  [3] Both fixes (recommended)" -ForegroundColor Green
+Write-Host "  [Q] Quit" -ForegroundColor Gray
 Write-Host ""
-Write-Host "Press ENTER to continue or Ctrl+C to cancel..." -ForegroundColor Gray
+Write-Host "Enter your choice (1/2/3/Q): " -ForegroundColor Cyan -NoNewline
+$userChoice = Read-Host
+
+$applyRTL = $false
+$applyCommand = $false
+
+switch ($userChoice.ToUpper()) {
+    "1" { 
+        $applyRTL = $true
+        Write-Host ""
+        Write-Host "[Selected] RTL fix only" -ForegroundColor Green
+    }
+    "2" { 
+        $applyCommand = $true
+        Write-Host ""
+        Write-Host "[Selected] Command fix only" -ForegroundColor Green
+    }
+    "3" { 
+        $applyRTL = $true
+        $applyCommand = $true
+        Write-Host ""
+        Write-Host "[Selected] Both fixes" -ForegroundColor Green
+    }
+    "Q" {
+        Write-Host ""
+        Write-Host "Cancelled by user." -ForegroundColor Yellow
+        exit 0
+    }
+    default {
+        Write-Host ""
+        Write-Host "Invalid choice. Exiting." -ForegroundColor Red
+        exit 1
+    }
+}
+
+Write-Host ""
+Write-Host "Press ENTER to continue..." -ForegroundColor Gray
 $null = Read-Host
 
 Clear-Host
@@ -101,30 +140,31 @@ if ($windsurfProcesses) {
     $null = Read-Host
 }
 
-Clear-Host
-Write-Host ""
-Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host "Step 3/4: Applying RTL Fix (Arabic support)..." -ForegroundColor Cyan
-Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host ""
+if ($applyRTL) {
+    Clear-Host
+    Write-Host ""
+    Write-Host "============================================================" -ForegroundColor Cyan
+    Write-Host "Step 3/4: Applying RTL Fix (Arabic support)..." -ForegroundColor Cyan
+    Write-Host "============================================================" -ForegroundColor Cyan
+    Write-Host ""
 
-if (-not (Test-Path $cascadePanelFile)) {
-    Write-Host "[X] File not found!" -ForegroundColor Red
-    Write-Host "    $cascadePanelFile" -ForegroundColor Gray
-    $errors++
-} else {
-    $currentContent = Get-Content $cascadePanelFile -Raw -Encoding UTF8
-    
-    if ($currentContent -match "RTL_REGEX") {
-        Write-Host "[OK] RTL fix already applied - skipping" -ForegroundColor Green
+    if (-not (Test-Path $cascadePanelFile)) {
+        Write-Host "[X] File not found!" -ForegroundColor Red
+        Write-Host "    $cascadePanelFile" -ForegroundColor Gray
+        $errors++
     } else {
-        Write-Host "[*] Creating backup..." -ForegroundColor Yellow
-        Copy-Item $cascadePanelFile "$cascadePanelFile.backup" -Force
-        Write-Host "[OK] Backup created" -ForegroundColor Green
-        Write-Host ""
-        Write-Host "[*] Applying RTL fix..." -ForegroundColor Yellow
+        $currentContent = Get-Content $cascadePanelFile -Raw -Encoding UTF8
         
-        $rtlContent = @'
+        if ($currentContent -match "RTL_REGEX") {
+            Write-Host "[OK] RTL fix already applied - skipping" -ForegroundColor Green
+        } else {
+            Write-Host "[*] Creating backup..." -ForegroundColor Yellow
+            Copy-Item $cascadePanelFile "$cascadePanelFile.backup" -Force
+            Write-Host "[OK] Backup created" -ForegroundColor Green
+            Write-Host ""
+            Write-Host "[*] Applying RTL fix..." -ForegroundColor Yellow
+            
+            $rtlContent = @'
 <!doctype html>
 <html>
   <head>
@@ -199,65 +239,74 @@ if (-not (Test-Path $cascadePanelFile)) {
   </body>
 </html>
 '@
-        
-        Set-Content $cascadePanelFile -Value $rtlContent -Encoding UTF8 -Force
-        Write-Host "[OK] RTL fix applied successfully!" -ForegroundColor Green
-        $patchesApplied++
-    }
-}
-
-Write-Host ""
-Write-Host "Press ENTER to continue..." -ForegroundColor Gray
-$null = Read-Host
-
-Clear-Host
-Write-Host ""
-Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host "Step 4/4: Applying Command Execution Fix..." -ForegroundColor Cyan
-Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host ""
-
-if (-not (Test-Path $extensionFile)) {
-    Write-Host "[X] File not found!" -ForegroundColor Red
-    Write-Host "    $extensionFile" -ForegroundColor Gray
-    $errors++
-} else {
-    $content = Get-Content $extensionFile -Raw -Encoding UTF8
-    
-    if ($content -notmatch "Invoke-Expression") {
-        Write-Host "[OK] Command fix already applied - skipping" -ForegroundColor Green
-    } else {
-        Write-Host "[*] Creating backup..." -ForegroundColor Yellow
-        Copy-Item $extensionFile "$extensionFile.backup" -Force
-        Write-Host "[OK] Backup created" -ForegroundColor Green
-        Write-Host ""
-        Write-Host "[*] Applying command execution fix..." -ForegroundColor Yellow
-        
-        $oldCode = 'prepareCommandForExecution(e,t){const n=(0,y.getShellNameFromShellPath)(a.env.shell);return"powershell"===n||"pwsh"===n?`Invoke-Expression ${JSON.stringify(e)}`:"bash"===n||"zsh"===n?`eval ${t}`:e}'
-        $newCode = 'prepareCommandForExecution(e,t){const n=(0,y.getShellNameFromShellPath)(a.env.shell);return e}'
-        
-        if ($content -match [regex]::Escape($oldCode)) {
-            $content = $content -replace [regex]::Escape($oldCode), $newCode
-            Set-Content $extensionFile -Value $content -Encoding UTF8 -Force -NoNewline
-            Write-Host "[OK] Command execution fix applied successfully!" -ForegroundColor Green
+            
+            Set-Content $cascadePanelFile -Value $rtlContent -Encoding UTF8 -Force
+            Write-Host "[OK] RTL fix applied successfully!" -ForegroundColor Green
             $patchesApplied++
-        } else {
-            Write-Host "[!] Warning: Could not find exact code pattern" -ForegroundColor Yellow
-            Write-Host "    The file structure might have changed" -ForegroundColor Gray
-            Write-Host ""
-            Write-Host "This could mean:" -ForegroundColor White
-            Write-Host "  - Windsurf already fixed this issue" -ForegroundColor Green
-            Write-Host "  - You're using a different version (not v1.12.21)" -ForegroundColor Yellow
-            Write-Host "  - The code structure changed" -ForegroundColor Yellow
-            Write-Host ""
-            Write-Host "Please check: https://github.com/amrpyt/windsurf-fixes/issues" -ForegroundColor Cyan
         }
     }
+
+    Write-Host ""
+    Write-Host "Press ENTER to continue..." -ForegroundColor Gray
+    $null = Read-Host
+} else {
+    Write-Host ""
+    Write-Host "[Skipped] RTL fix not selected" -ForegroundColor Gray
 }
 
-Write-Host ""
-Write-Host "Press ENTER to see results..." -ForegroundColor Gray
-$null = Read-Host
+if ($applyCommand) {
+    Clear-Host
+    Write-Host ""
+    Write-Host "============================================================" -ForegroundColor Cyan
+    Write-Host "Step 4/4: Applying Command Execution Fix..." -ForegroundColor Cyan
+    Write-Host "============================================================" -ForegroundColor Cyan
+    Write-Host ""
+
+    if (-not (Test-Path $extensionFile)) {
+        Write-Host "[X] File not found!" -ForegroundColor Red
+        Write-Host "    $extensionFile" -ForegroundColor Gray
+        $errors++
+    } else {
+        $content = Get-Content $extensionFile -Raw -Encoding UTF8
+        
+        if ($content -notmatch "Invoke-Expression") {
+            Write-Host "[OK] Command fix already applied - skipping" -ForegroundColor Green
+        } else {
+            Write-Host "[*] Creating backup..." -ForegroundColor Yellow
+            Copy-Item $extensionFile "$extensionFile.backup" -Force
+            Write-Host "[OK] Backup created" -ForegroundColor Green
+            Write-Host ""
+            Write-Host "[*] Applying command execution fix..." -ForegroundColor Yellow
+            
+            $oldCode = 'prepareCommandForExecution(e,t){const n=(0,y.getShellNameFromShellPath)(a.env.shell);return"powershell"===n||"pwsh"===n?`Invoke-Expression ${JSON.stringify(e)}`:"bash"===n||"zsh"===n?`eval ${t}`:e}'
+            $newCode = 'prepareCommandForExecution(e,t){const n=(0,y.getShellNameFromShellPath)(a.env.shell);return e}'
+            
+            if ($content -match [regex]::Escape($oldCode)) {
+                $content = $content -replace [regex]::Escape($oldCode), $newCode
+                Set-Content $extensionFile -Value $content -Encoding UTF8 -Force -NoNewline
+                Write-Host "[OK] Command execution fix applied successfully!" -ForegroundColor Green
+                $patchesApplied++
+            } else {
+                Write-Host "[!] Warning: Could not find exact code pattern" -ForegroundColor Yellow
+                Write-Host "    The file structure might have changed" -ForegroundColor Gray
+                Write-Host ""
+                Write-Host "This could mean:" -ForegroundColor White
+                Write-Host "  - Windsurf already fixed this issue" -ForegroundColor Green
+                Write-Host "  - You're using a different version (not v1.12.21)" -ForegroundColor Yellow
+                Write-Host "  - The code structure changed" -ForegroundColor Yellow
+                Write-Host ""
+                Write-Host "Please check: https://github.com/amrpyt/windsurf-fixes/issues" -ForegroundColor Cyan
+            }
+        }
+    }
+
+    Write-Host ""
+    Write-Host "Press ENTER to see results..." -ForegroundColor Gray
+    $null = Read-Host
+} else {
+    Write-Host ""
+    Write-Host "[Skipped] Command fix not selected" -ForegroundColor Gray
+}
 
 Clear-Host
 Write-Host ""
@@ -267,11 +316,15 @@ Write-Host "============================================================" -Foreg
 Write-Host ""
 
 if ($errors -eq 0 -and $patchesApplied -gt 0) {
-    Write-Host "[SUCCESS] All patches applied successfully!" -ForegroundColor Green
+    Write-Host "[SUCCESS] Selected patches applied successfully!" -ForegroundColor Green
     Write-Host ""
     Write-Host "What was fixed:" -ForegroundColor White
-    Write-Host "  [OK] Arabic text (RTL support)" -ForegroundColor Green
-    Write-Host "  [OK] PowerShell command execution" -ForegroundColor Green
+    if ($applyRTL) {
+        Write-Host "  [OK] Arabic text (RTL support)" -ForegroundColor Green
+    }
+    if ($applyCommand) {
+        Write-Host "  [OK] PowerShell command execution" -ForegroundColor Green
+    }
     Write-Host ""
     Write-Host "Next step:" -ForegroundColor Cyan
     Write-Host "  Restart Windsurf to apply changes" -ForegroundColor Yellow
@@ -279,10 +332,14 @@ if ($errors -eq 0 -and $patchesApplied -gt 0) {
     Write-Host "Backups created at:" -ForegroundColor White
     Write-Host "  $windsurfPath" -ForegroundColor Gray
 } elseif ($patchesApplied -eq 0 -and $errors -eq 0) {
-    Write-Host "[OK] All patches were already applied!" -ForegroundColor Green
-    Write-Host ""
-    Write-Host "Your Windsurf is already fixed." -ForegroundColor White
-    Write-Host "No action needed." -ForegroundColor White
+    if ($applyRTL -or $applyCommand) {
+        Write-Host "[OK] Selected patches were already applied!" -ForegroundColor Green
+        Write-Host ""
+        Write-Host "Your Windsurf is already fixed." -ForegroundColor White
+        Write-Host "No action needed." -ForegroundColor White
+    } else {
+        Write-Host "[INFO] No fixes were selected." -ForegroundColor Yellow
+    }
 } else {
     Write-Host "[WARNING] Some patches failed!" -ForegroundColor Yellow
     Write-Host ""
