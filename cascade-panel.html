@@ -1,0 +1,89 @@
+<!doctype html>
+<html>
+  <head>
+    <style>
+      /* Font sizes */
+      html {
+        font-size: 16px !important;
+      }
+      
+      body, p, div, span, li, td, th {
+        font-size: 1.1rem !important;
+      }
+      
+      h1 { font-size: 2.3rem !important; }
+      h2 { font-size: 1.8rem !important; }
+      h3 { font-size: 1.5rem !important; }
+      h4 { font-size: 1.3rem !important; }
+      h5 { font-size: 1.1rem !important; }
+      h6 { font-size: 1rem !important; }
+      
+      /* Minimal, professional RTL: no global direction override */
+      /* Keep code blocks always LTR */
+      pre, code, pre code {
+        unicode-bidi: bidi-override !important;
+        direction: ltr !important;
+        text-align: left !important;
+      }
+
+      /* Lists: let dir decide side; keep markers outside (default) */
+      ul, ol { unicode-bidi: normal !important; }
+      ul[dir="rtl"], ol[dir="rtl"] { direction: rtl; }
+      ul[dir="ltr"], ol[dir="ltr"] { direction: ltr; }
+      li { list-style-position: outside; }
+
+      /* Text alignment should follow direction automatically */
+      p, li, div, span, h1, h2, h3, h4, h5, h6, blockquote, td, th {
+        text-align: start;
+      }
+
+      /* Inputs: allow natural typing direction */
+      textarea, input { unicode-bidi: plaintext; }
+    </style>
+  </head>
+  <body style="margin: 0">
+    <div id="react-app" class="react-app-container"></div>
+    <script>
+      (function () {
+        const RTL_REGEX = /[\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFC]/;
+        const TEXT_SELECTORS = 'p, li, div, span, h1, h2, h3, h4, h5, h6, blockquote, td, th';
+
+        const getText = (el) => (el && (el.innerText || el.textContent) || '').trim();
+        const isRTL = (s) => RTL_REGEX.test(s);
+
+        function setDirAuto(el) {
+          if (el.closest && el.closest('pre, code')) return;
+          if (el.tagName && el.tagName.toLowerCase() === 'li') {
+            const t = getText(el);
+            if (!t) return;
+            el.setAttribute('dir', isRTL(t) ? 'rtl' : 'ltr');
+            const list = el.parentElement;
+            if (list && list.matches && list.matches('ul,ol')) {
+              const first = Array.from(list.querySelectorAll(':scope > li')).find(li => getText(li));
+              if (first) list.setAttribute('dir', first.getAttribute('dir') || (isRTL(getText(first)) ? 'rtl' : 'ltr'));
+            }
+          } else {
+            el.setAttribute('dir', 'auto');
+          }
+        }
+
+        function apply(root = document) {
+          root.querySelectorAll(TEXT_SELECTORS).forEach(setDirAuto);
+        }
+
+        const observer = new MutationObserver((mutations) => {
+          for (const m of mutations) {
+            if (m.type === 'childList') {
+              m.addedNodes.forEach((n) => { if (n.nodeType === 1) apply(n); });
+            } else if (m.type === 'characterData') {
+              const p = m.target && m.target.parentElement; if (p) setDirAuto(p);
+            }
+          }
+        });
+
+        apply();
+        observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+      })();
+    </script>
+  </body>
+</html>
