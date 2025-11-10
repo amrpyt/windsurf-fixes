@@ -18,71 +18,158 @@
       h5 { font-size: 1.1rem !important; }
       h6 { font-size: 1rem !important; }
       
-      /* Minimal, professional RTL: no global direction override */
+      /* RTL Support: Automatic direction detection for Arabic text */
       /* Keep code blocks always LTR */
-      pre, code, pre code {
+      pre, code, pre code, .hljs {
         unicode-bidi: bidi-override !important;
         direction: ltr !important;
         text-align: left !important;
       }
 
-      /* Lists: let dir decide side; keep markers outside (default) */
-      ul, ol { unicode-bidi: normal !important; }
-      ul[dir="rtl"], ol[dir="rtl"] { direction: rtl; }
-      ul[dir="ltr"], ol[dir="ltr"] { direction: ltr; }
-      li { list-style-position: outside; }
+      /* Elements with dir attribute follow their direction */
+      *[dir="rtl"] {
+        direction: rtl !important;
+        text-align: right !important;
+      }
+      
+      *[dir="ltr"] {
+        direction: ltr !important;
+        text-align: left !important;
+      }
+      
+      *[dir="auto"] {
+        direction: auto !important;
+        text-align: start !important;
+      }
 
-      /* Text alignment should follow direction automatically */
-      p, li, div, span, h1, h2, h3, h4, h5, h6, blockquote, td, th {
-        text-align: start;
+      /* Lists: RTL lists show markers on the right */
+      ul[dir="rtl"], ol[dir="rtl"] {
+        padding-right: 2em !important;
+        padding-left: 0 !important;
+      }
+      
+      ul[dir="ltr"], ol[dir="ltr"] {
+        padding-left: 2em !important;
+        padding-right: 0 !important;
       }
 
       /* Inputs: allow natural typing direction */
-      textarea, input { unicode-bidi: plaintext; }
+      textarea, input {
+        unicode-bidi: plaintext !important;
+      }
     </style>
   </head>
   <body style="margin: 0">
     <div id="react-app" class="react-app-container"></div>
     <script>
       (function () {
-        const RTL_REGEX = /[\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFC]/;
-        const TEXT_SELECTORS = 'p, li, div, span, h1, h2, h3, h4, h5, h6, blockquote, td, th';
+        // Enhanced RTL detection for Arabic and other RTL languages
+        const RTL_REGEX = /[\u0591-\u07FF\uFB1D-\uFDFD\uFE70-\uFEFC]/;
+        const TEXT_SELECTORS = 'p, li, div:not(.hljs), span, h1, h2, h3, h4, h5, h6, blockquote, td, th';
 
-        const getText = (el) => (el && (el.innerText || el.textContent) || '').trim();
-        const isRTL = (s) => RTL_REGEX.test(s);
+        const getText = (el) => {
+          if (!el) return '';
+          // Get only direct text content, excluding code blocks
+          const clone = el.cloneNode(true);
+          const codeBlocks = clone.querySelectorAll('pre, code, .hljs');
+          codeBlocks.forEach(block => block.remove());
+          return (clone.innerText || clone.textContent || '').trim();
+        };
+        
+        const isRTL = (text) => {
+          if (!text || text.length === 0) return false;
+          // Skip emojis, numbers, punctuation - find first actual letter
+          const trimmed = text.trim();
+          for (let i = 0; i < trimmed.length; i++) {
+            const char = trimmed[i];
+            // Skip emojis (most are in these ranges)
+            if (char.match(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u)) continue;
+            // Skip numbers
+            if (char.match(/[0-9\u0660-\u0669]/)) continue;
+            // Skip common punctuation and symbols
+            if (char.match(/[\s.,!?;:()\[\]{}"'`~@#$%^&*\-_=+|\\/<>]/)) continue;
+            // Check if this character is RTL
+            if (RTL_REGEX.test(char)) return true;
+            // If we found a non-RTL letter, it's LTR
+            if (char.match(/[a-zA-Z]/)) return false;
+          }
+          return false;
+        };
 
         function setDirAuto(el) {
-          if (el.closest && el.closest('pre, code')) return;
+          // Skip code blocks
+          if (el.closest && el.closest('pre, code, .hljs')) return;
+          if (el.classList && (el.classList.contains('hljs') || el.classList.contains('language-'))) return;
+          
+          const text = getText(el);
+          if (!text) return;
+          
           if (el.tagName && el.tagName.toLowerCase() === 'li') {
-            const t = getText(el);
-            if (!t) return;
-            el.setAttribute('dir', isRTL(t) ? 'rtl' : 'ltr');
+            // For list items
+            el.setAttribute('dir', isRTL(text) ? 'rtl' : 'ltr');
             const list = el.parentElement;
-            if (list && list.matches && list.matches('ul,ol')) {
-              const first = Array.from(list.querySelectorAll(':scope > li')).find(li => getText(li));
-              if (first) list.setAttribute('dir', first.getAttribute('dir') || (isRTL(getText(first)) ? 'rtl' : 'ltr'));
+            if (list && list.matches && list.matches('ul, ol')) {
+              const items = Array.from(list.querySelectorAll(':scope > li'));
+              const firstWithText = items.find(li => getText(li));
+              if (firstWithText) {
+                const dir = firstWithText.getAttribute('dir') || (isRTL(getText(firstWithText)) ? 'rtl' : 'ltr');
+                list.setAttribute('dir', dir);
+              }
             }
           } else {
-            el.setAttribute('dir', 'auto');
+            // For other text elements
+            el.setAttribute('dir', isRTL(text) ? 'rtl' : 'ltr');
           }
         }
 
         function apply(root = document) {
-          root.querySelectorAll(TEXT_SELECTORS).forEach(setDirAuto);
+          root.querySelectorAll(TEXT_SELECTORS).forEach(el => {
+            try {
+              setDirAuto(el);
+            } catch (e) {
+              console.warn('RTL application error:', e);
+            }
+          });
         }
 
         const observer = new MutationObserver((mutations) => {
           for (const m of mutations) {
             if (m.type === 'childList') {
-              m.addedNodes.forEach((n) => { if (n.nodeType === 1) apply(n); });
+              m.addedNodes.forEach((n) => {
+                if (n.nodeType === 1) {
+                  try {
+                    apply(n);
+                  } catch (e) {
+                    console.warn('RTL observer error:', e);
+                  }
+                }
+              });
             } else if (m.type === 'characterData') {
-              const p = m.target && m.target.parentElement; if (p) setDirAuto(p);
+              const p = m.target && m.target.parentElement;
+              if (p) {
+                try {
+                  setDirAuto(p);
+                } catch (e) {
+                  console.warn('RTL characterData error:', e);
+                }
+              }
             }
           }
         });
 
-        apply();
-        observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+        // Apply on load
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', apply);
+        } else {
+          apply();
+        }
+        
+        // Observe changes
+        observer.observe(document.body, {
+          childList: true,
+          subtree: true,
+          characterData: true
+        });
       })();
     </script>
   </body>
